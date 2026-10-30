@@ -13,6 +13,24 @@ class TestSnowflake(Validator):
     maxDiff = None
     dialect = "snowflake"
 
+    def test_base64_overlapping_alphabet(self):
+        self.validate_all(
+            "SELECT BASE64_ENCODE(x, 0, '/+=')",
+            write={"duckdb": "SELECT TRANSLATE(TO_BASE64(x), '+/', '/+')"},
+        )
+        self.validate_all(
+            "SELECT BASE64_DECODE_BINARY('-_8+', '-_+')",
+            write={"duckdb": "SELECT FROM_BASE64(TRANSLATE('-_8+', '-_+', '+/='))"},
+        )
+        self.validate_all(
+            "SELECT BASE64_DECODE_STRING('4KC/', '/+=')",
+            write={"duckdb": "SELECT DECODE(FROM_BASE64(TRANSLATE('4KC/', '/+', '+/')))"},
+        )
+        self.validate_all(
+            "SELECT BASE64_ENCODE(x, 0, '-')",
+            write={"duckdb": "SELECT TRANSLATE(TO_BASE64(x), '+', '-')"},
+        )
+
     def test_time_format_case(self):
         self.validate_all(
             "SELECT TO_TIMESTAMP('2024-5-9', 'yyyy-mm-DD')",
@@ -3281,7 +3299,7 @@ class TestSnowflake(Validator):
             "SELECT BASE64_DECODE_STRING('U25vd2ZsYWtl', '-_+')",
             write={
                 "snowflake": "SELECT BASE64_DECODE_STRING('U25vd2ZsYWtl', '-_+')",
-                "duckdb": "SELECT DECODE(FROM_BASE64(REPLACE(REPLACE(REPLACE('U25vd2ZsYWtl', '-', '+'), '_', '/'), '+', '=')))",
+                "duckdb": "SELECT DECODE(FROM_BASE64(TRANSLATE('U25vd2ZsYWtl', '-_+', '+/=')))",
             },
         )
         self.validate_all(
@@ -3295,7 +3313,7 @@ class TestSnowflake(Validator):
             "SELECT BASE64_DECODE_BINARY(x, '-_+')",
             write={
                 "snowflake": "SELECT BASE64_DECODE_BINARY(x, '-_+')",
-                "duckdb": "SELECT FROM_BASE64(REPLACE(REPLACE(REPLACE(x, '-', '+'), '_', '/'), '+', '='))",
+                "duckdb": "SELECT FROM_BASE64(TRANSLATE(x, '-_+', '+/='))",
             },
         )
 
